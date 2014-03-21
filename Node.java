@@ -36,7 +36,7 @@ public class Node
 	private boolean intention = false;
 	private int retransIndex = -1;
 	private int failIndex = -1;
-	private int retransID = -1;
+	private int retransReceiver = -1;
 	private int frameRetransmit = -1;
 	private Message toCooperate = null;
 	
@@ -234,18 +234,17 @@ public class Node
 	 * @param ID
 	 * @return
 	 */
-	private boolean containedInOHS(int ID)
+	public boolean recInOHS(int rID)
 	{
-		boolean contained = false;
-		for(int i: this.OHS)
+		boolean inSet = false;
+		if(this.OHS.contains(rID))
 		{
-			if(i == ID)
-			{
-				contained = true;
-				break;
-			}
+			inSet = true;
+		}else
+		{
+			inSet = false;
 		}
-		return contained;
+		return inSet;
 	}
 	/**
 	 * Returns true if the passed ID is in the nodes THS, false otherwise
@@ -269,6 +268,7 @@ public class Node
 	{
 		ReservationBean[] mFI = m.getFID();
 		ArrayList<MemoryBean> r = rMsgs.get(m.getSenderID());
+		/*
 		if(r != null)
 		{
 			for(int i = 0; i < r.size(); i++)
@@ -279,6 +279,13 @@ public class Node
 					//System.out.println("removing");
 					r.remove(i);
 				}
+			}
+		}*/
+		if(r != null)
+		{
+			for(int i = 0; i < r.size(); i++)
+			{
+				Message possibleRemove = r.get(i).getM();
 			}
 		}
 	}
@@ -380,7 +387,7 @@ public class Node
 			int creationTime = clock.getTime();
 			boolean isRetransmit = false;
 			ReservationBean[] Res = FI;
-			CoopHeader c = null;
+			CoopHeader c = new CoopHeader(intention, failIndex, retransIndex, retransReceiver);
 			int remainingDuration = this.remainingReservationTime;
 			toSend = new Message(msgID, senderID, receiverID, timeSlot, creationTime, isRetransmit, Res, c, remainingDuration);
 			
@@ -423,6 +430,7 @@ public class Node
 		int receiverID = m.getReceiverID();
 		boolean isRetransmit = m.isRetransmit();
 		int senderRemainingDuration = m.getRemainingDuration();
+		boolean recInOHS = this.recInOHS(receiverID);
 		
 		
 		if(didReceive <= PoS)
@@ -435,9 +443,52 @@ public class Node
 				{
 					this.success++;
 					//System.out.println("Node " + this.ID + " got msg for it");
+				}else if(recInOHS)
+				{
+					if(rMsgs.containsKey(receiverID))
+					{
+						rMsgs.get(receiverID).add(new MemoryBean(m,clock.getFrame()));
+					}else
+					{
+						ArrayList<MemoryBean> temp = new ArrayList<MemoryBean>();
+						temp.add(new MemoryBean(m,clock.getFrame()));
+						rMsgs.put(receiverID, temp);
+					}
+					
+					if(m.getCoHeader().getReceiverID() == this.ID)
+					{
+						this.ackID = senderID;
+						this.ackSlot = m.getCoHeader().getIndexRetransmit();
+					}
+					
+					if(this.checkForRetransCollision(m.getCoHeader()))
+					{
+						this.intention = false;
+						this.failIndex = -1;
+						this.retransIndex = -1;
+						this.frameRetransmit = -1;
+					}
+					this.clearSuccessFromCache(m);
 				}
 			}
 		}
+	}
+	/**
+	 * Check if have a collision during this slot to retransmit
+	 * @param c
+	 * @return
+	 */
+	public boolean checkForRetransCollision(CoopHeader c)
+	{
+		boolean haveCollision = false;
+		if(c.getIntention() == true && this.intention == true)
+		{
+			if(this.retransIndex == c.getIndexRetransmit())
+			{
+				haveCollision = true;
+			}
+		}
+		return haveCollision;
 	}
 	public void updateNeighbourTables(Message m)
 	{
@@ -636,7 +687,7 @@ public class Node
 		{
 			originalTimeSlots[i] = new ReservationBean(timeSlots[i].getHolder(), timeSlots[i].getDuration()); //Set all timeslots to -1
 			originalFI[i] = new ReservationBean(FI[i].getHolder(), FI[i].getDuration());
-		}
-		
+		}	
 	}
+	
 }

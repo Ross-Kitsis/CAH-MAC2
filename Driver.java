@@ -13,13 +13,13 @@ public class Driver
 	public static void main(String[] args) throws FileNotFoundException
 	{
 		//Model parameters
-		int numNodes = 500;
+		int numNodes = 30;
 		int numLanes = 2;
 		int width = 5;
 		int range = 200;
 		double PoS = 0.5;
-		double density = 0.01;
-		int numSlots = 60;
+		double density = 0.1;
+		int numSlots = 40;
 
 		//AdHoc parameters
 		double b = 0.1;
